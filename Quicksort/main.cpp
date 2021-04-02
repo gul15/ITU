@@ -2,7 +2,8 @@
  *  Number: 150150006
  *  BLG 335E - Analysis of Algorithms I / CRN:15175	
  * 	Assignment 1 - Quicksort Analysis*/
-
+ 
+// Note : Since it uses STL when compiling i used "-std=c++11". 
 
 #include<iostream>	
 #include<fstream>
@@ -17,11 +18,43 @@ struct sale{
 	string item;
 	string order;
 	int sold_unit;
-	double profit;
+	float profit;
 };
+//Function prototypes
+void print_vector(vector<sale> x); //prints the vector list of sales to terminal
+void print_vector_tofile(vector<sale> x,string filename);//creates a txt file with selected name and prints the vector list of sales to that file
+void swap(sale* a, sale* b); // swap to sales in vector list,used in partition
+void quicksort_by_country(vector<sale> &x,int p,int r); //quicksort by country, takes a vector of sales, lowest index and highest index
+int partition(vector<sale> &x, int p,int  r); // partition used in quicksort takes the same values and returns the new pivot value for divided lists
+void quicksort_by_profit(vector<sale> &x,int p,int r); // quicksort by profit, used for the b part of the report
+int partition_profit(vector<sale> &x, int p, int r);
+vector<sale> read_data(ifstream& file,int N,string filename); // this function reads data from text file and returns the vector list
+void write_runt_res_file(ifstream& datafile,string datafilename,string newfilename);// This function is used to calculate avarege running times of quicksort and write the results to a text file
+         
+
+int main(){  //Main start
+	
+	ifstream file;
+	int N = 10000; //readed value from command line
+	vector<sale> sales= read_data(file,N,"sorted.txt"); // read data from sales.txt and save it in sales vector.
+	
+		//quicksort_by_profit(sales,0,sales.size()-1);  // used for the part b of the report. First sort the sales according to profit then sort alphabeticaly
+		//print_vector_tofile(sales,"sorted_by_profit.txt");
+		
+	clock_t time; // time variable definition
+	time = clock(); // starting time of sorting
+	quicksort_by_country(sales,0,sales.size()-1); // sort sales vector
+	time = clock() - time; // ending time of sorting - starting time = process runtime 
+	cout<<"Files printed to the file 'sorted.txt'."<<endl;
+	cout<<"Sorting "<<N<<" line of sales took "<<(float)time/CLOCKS_PER_SEC<<" seconds."<<endl;
+	cout<<"Now printing new list to a file"<<endl; 
+	print_vector_tofile(sales,"sorted2.txt"); // print sales to file named "sorted.txt"
+	cout<<"Writing finished."<<endl;
+	cout<<"Exiting..."<<endl;
+}   //Main end
 
 void print_vector(vector<sale> x){     // I used vector as data structure and this prints the vector
-	cout << fixed << setprecision(2);
+	cout << fixed << setprecision(5);
 	for(int i = 0;i<x.size();i++){
 		cout<<x[i].country<<"\t"<<x[i].item<<"\t"<<x[i].order<<"\t"<<x[i].sold_unit<<"\t"<<x[i].profit<<endl; 
 	}
@@ -33,77 +66,102 @@ void print_vector_tofile(vector<sale> x,string filename){     // I used vector a
 		cerr << "File cannot be opened!";
 		exit(1);
 	}
-	file << fixed << setprecision(2);		//to get rid of "e" values
+	file << fixed << setprecision(5);		//to get rid of "e" values
 	file<<"Country"<<"\t"<<"Item Type"<<"\t"<<"Order ID"<<"\t"<<"Units Sold"<<"\t"<<"Total Profit"<<endl; 
 	for(int i = 0;i<x.size();i++){
 		file<<x[i].country<<"\t"<<x[i].item<<"\t"<<x[i].order<<"\t"<<x[i].sold_unit<<" "<<x[i].profit<<endl; 
 	}
 }
-
-vector<sale> quicksort_by_country(vector<sale> &x){ // Deterministic quicksort function. First value of the list taken as pivot (Sort by country names alphabeticly)
-
-	int size = x.size();  //size of the list
+void write_runt_res_file(ifstream& datafile,string datafilename,string newfilename){ // This function is used to calculate avarege running times of quicksort and write the results to a text file
 	
-	if(size<2){ // if size < 2 returns the remaining list
-		return x;
+	ofstream runtimefile;
+	runtimefile.open(newfilename);
+	if(!runtimefile){
+		cerr << "File cannot be opened!";
+		exit(1);
 	}
-	else{
-		vector<sale> right; // two lists filled by comparing to the pivot value
-		vector<sale> left;
-		for(int i = 1;i<x.size();i++){   // i starts from 1 since first elemenet(0) is pivot
-			int res = (x[i].country).compare(x[0].country); // compare two element
-					
-			if(res>0 ){ // if compared element > pivot, go right list
-				right.push_back(x[i]);
-			}
-			else if(res<0){ // if smaller , go left list
-				left.push_back(x[i]);
-			}
-			else if(res == 0){ //if two element equal, compare their profits
-				
-				if(x[i].profit <= x[0].profit){ //if profit bigger go right
-					right.push_back(x[i]);
-				}
-				else{	//else go left
-					left.push_back(x[i]);
-				}			
-			}
+	clock_t time;
+	float average_time=0;
+	vector<sale> list;
+	for(int j=10;j<=1000000;j=j*10){
+		average_time=0;
+		list = read_data(datafile,j,datafilename);
+		vector<sale> temp_list;
+		for(int i=1;i<11;i++){
+			temp_list = list;
+			time = clock();
+			quicksort_by_country(temp_list,0,temp_list.size()-1);
+			time = clock() - time;
+			cout<<"Trial:"<<i<<" - N:"<<j<<" - Time = "<<float(time)/CLOCKS_PER_SEC<<endl;
+			average_time = average_time + time; 
 		}
-		right = quicksort_by_country(right); // then quicksort right and left lists recursively
-		left = quicksort_by_country(left);
-		
-		left.push_back(x[0]); // push the pivot element to right side of the left. ((left+pivot)+right)
-		left.insert(left.end(),right.begin(),right.end()); // combine two lists into left
-		return left; 
-	}	
+		average_time = average_time/(CLOCKS_PER_SEC*10);
+		runtimefile<<"Avarage time for N="<<j<<" is :"<<average_time<<endl;
+		if( j== 100000){
+			list = read_data(datafile,500000,datafilename);
+			for(int i=1;i<11;i++){
+				temp_list = list;
+				time = clock();
+				quicksort_by_country(temp_list,0,temp_list.size()-1);
+				time = clock() - time;
+				cout<<"Trial:"<<i<<" - N:"<<500000<<" - Time = "<<float(time)/CLOCKS_PER_SEC<<endl;
+				average_time = average_time + time; 
+			}
+				average_time = average_time/(CLOCKS_PER_SEC*10);
+				runtimefile<<"Avarage time for N="<<500000<<" is :"<<average_time<<endl;
+		}
+	}
+	runtimefile.close();
 }
-vector<sale> quicksort_by_profit(vector<sale> &x){ // Deterministic quicksort function. First value of the list taken as pivot (Sort based on profits)
-
-	int size = x.size();  //size of the list
-	
-	if(size<2){ // if size < 2 returns the remaining list
-		return x;
-	}
-	else{
-		vector<sale> right; // two lists filled by comparing to the pivot value
-		vector<sale> left;
-		for(int i = 1;i<x.size();i++){   // i starts from 1 since first elemenet(0) is pivot
-			bool res = (x[i].profit)>(x[0].profit); // compare two element
-					
-			if(res){ // if compared element > pivot, go right list
-				right.push_back(x[i]);
-			}
-			else{ // if smaller , go left list
-				left.push_back(x[i]);
+void swap(sale* a, sale* b){  
+    sale t = *a;  
+    *a = *b;  
+    *b = t;  
+}  
+void quicksort_by_country(vector<sale> &x,int p,int r){ // Deterministic quicksort function. First value of the list taken as pivot (Sort by country names alphabeticly)
+    if(p < r) {
+        int q = partition(x,p,r); // returns the pivot value of next sorts
+        quicksort_by_country(x, p, q-1); // recursively call for partitions
+        quicksort_by_country(x, q+1, r);
+    }
+}
+int partition(vector<sale> &x, int p, int r){
+	int pivot_index = r; //last element as pivot
+	int i = p-1;
+	for(int j=p;j<=r-1;j++){ // initilize j (checking iterator) with the lowest index and increment until highest
+		if(x[j].country.compare(x[pivot_index].country)<0){ // compare by country name
+			i++;
+			swap(x[i],x[j]);  
+		}
+		else if(x[j].country.compare(x[pivot_index].country)==0){ // if same country compare by profits
+			if(x[j].profit>x[pivot_index].profit){
+				i++;
+				swap(x[i],x[j]);
 			}
 		}
-		right = quicksort_by_profit(right); // then quicksort right and left lists recursively
-		left = quicksort_by_profit(left);
-		
-		left.push_back(x[0]); // push the pivot element to right side of the left. ((left+pivot)+right)
-		left.insert(left.end(),right.begin(),right.end()); // combine two lists into left
-		return left; 
-	}	
+	}
+	swap(x[i+1],x[r]);
+	return i + 1; // return new pivot index
+}
+
+void quicksort_by_profit(vector<sale> &x,int p,int r){ // Deterministic quicksort function. First value of the list taken as pivot 
+    if(p < r) {
+        int q = partition_profit(x,p,r); // returns the pivot value of next sorts
+        quicksort_by_profit(x, p, q-1); // recursively call for partitions
+        quicksort_by_profit(x, q+1, r);
+    }
+}
+int partition_profit(vector<sale> &x, int p, int r){
+	int pivot_index = r; //last element as pivot
+	int i = p-1;
+	for(int j=p;j<=r-1;j++){
+		if(x[j].profit>x[pivot_index].profit){ // compare by profit
+			i++;
+			swap(x[i],x[j]); 
+		}
+	}
+	swap(x[i+1],x[r]);
+	return i + 1; // return new pivot index
 }
 vector<sale> read_data(ifstream& file,int N,string filename){ // this function reads data from text file and returns the vector list
 	vector<sale> list;
@@ -140,56 +198,3 @@ vector<sale> read_data(ifstream& file,int N,string filename){ // this function r
 	file.close();
 	return list; // returns list
 }
-
-void write_runt_res_file(ifstream& datafile,string datafilename,string newfilename){ // This function is used to calculate avarege running times of quicksort and write the results to a text file
-	
-	ofstream runtimefile;
-	runtimefile.open(newfilename);
-	if(!runtimefile){
-		cerr << "File cannot be opened!";
-		exit(1);
-	}
-	clock_t time;
-	float average_time=0;
-	vector<sale> list;
-	for(int j=10;j<=1000000;j=j*10){
-		average_time=0;
-		list = read_data(datafile,j,datafilename);
-		for(int i=1;i<11;i++){
-			time = clock();
-			quicksort_by_country(list);
-			time = clock() - time;
-			cout<<"Trial:"<<i<<" - N:"<<j<<" - Time = "<<float(time)/CLOCKS_PER_SEC<<endl;
-			average_time = average_time + time; 
-		}
-		average_time = average_time/(CLOCKS_PER_SEC*10);
-		runtimefile<<"Avarage time for N="<<j<<" is :"<<average_time<<endl;
-		if( j== 100000){
-			list = read_data(datafile,500000,datafilename);
-			for(int i=1;i<11;i++){
-				time = clock();
-				quicksort_by_country(list);
-				time = clock() - time;
-				cout<<"Trial:"<<i<<" - N:"<<500000<<" - Time = "<<float(time)/CLOCKS_PER_SEC<<endl;
-				average_time = average_time + time; 
-			}
-				average_time = average_time/(CLOCKS_PER_SEC*10);
-				runtimefile<<"Avarage time for N="<<500000<<" is :"<<average_time<<endl;
-		}
-	}
-	runtimefile.close();
-}
-                            
-int main(int argc,char* argv[]){  //Main start
-	ifstream file;
-	int N = atoi(argv[1]); //you should read value of N from command line
-	vector<sale> sales= read_data(file,N,"sales.txt");
-	clock_t time;
-	time = clock();
-	sales = quicksort_by_country(sales);
-	time = clock() - time;
-	print_vector_tofile(sales,"sorted.txt");
-	cout<<"Files printed to the file 'sorted.txt'."<<endl;
-	cout<<"Sorting "<<N<<" files took "<<(float)time/CLOCKS_PER_SEC<<" seconds."<<endl;
-
-}   //Main end
